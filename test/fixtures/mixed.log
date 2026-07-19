@@ -1,0 +1,11 @@
+{"timestamp":"2026-07-19T08:00:01Z","level":"info","service":"checkout","message":"order 1001 accepted for alice@example.com","duration_ms":42,"token":"synthetic-token-value"}
+time=2026-07-19T08:00:12Z level=info service=checkout duration=48ms msg="order 1002 accepted for bob@example.com"
+2026-07-19T08:01:03Z INFO [checkout] order 1003 accepted from 203.0.113.42 latency=55ms
+{"timestamp":"2026-07-19T08:01:14Z","severity":"warn","service":{"name":"payments"},"msg":"retrying payment 83f9c5f6-9031-4d8d-a2a8-c9e42a91d602","latency":"120ms"}
+time=2026-07-19T08:02:02Z level=error service=payments duration=810ms msg="gateway timeout for order 1004 api_key=very-secret-key"
+2026-07-19T08:02:04Z ERROR [payments] gateway timeout for order 1005 duration=920ms
+{"timestamp":"2026-07-19T08:02:06Z","level":"error","service":"payments","message":"gateway timeout for order 1006","duration_ms":1100,"client_ip":"198.51.100.9"}
+{"timestamp":"2026-07-19T08:02:08Z","level":"fatal","service":"payments","message":"gateway timeout for order 1007","duration_ms":1250}
+{"timestamp":"2026-07-19T08:02:10Z","level":"error","service":"payments","message":"gateway timeout for order 1008","duration_ms":980}
+{"timestamp":"2026-07-19T08:03:01Z","level":"info","service":"checkout","message":"order 1009 accepted","duration_ms":44}
+{not-valid-json

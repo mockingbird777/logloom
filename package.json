@@ -1,0 +1,59 @@
+{
+  "name": "logloom",
+  "version": "0.1.0",
+  "description": "Privacy-first, local-first log investigation from your terminal.",
+  "type": "module",
+  "bin": {
+    "logloom": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepare": "npm run build",
+    "test": "npm run build && node --test",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage",
+    "check": "npm test && npm pack --dry-run",
+    "prepublishOnly": "npm run check"
+  },
+  "keywords": [
+    "logs",
+    "observability",
+    "cli",
+    "privacy",
+    "incident-response",
+    "log-analysis",
+    "devops",
+    "sre"
+  ],
+  "author": "LogLoom contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mockingbird777/logloom.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mockingbird777/logloom/issues"
+  },
+  "homepage": "https://github.com/mockingbird777/logloom#readme",
+  "devDependencies": {
+    "@types/node": "^20.17.30",
+    "typescript": "^5.8.3"
+  }
+}

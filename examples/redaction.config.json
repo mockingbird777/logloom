@@ -1,0 +1,10 @@
+{
+  "sensitiveFields": ["customer_id", "tenant_slug"],
+  "patterns": [
+    {
+      "name": "ORDER_ID",
+      "regex": "\\bORD-[A-Z0-9]{8}\\b",
+      "flags": "gi"
+    }
+  ]
+}

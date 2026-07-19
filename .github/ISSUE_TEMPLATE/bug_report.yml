@@ -1,0 +1,68 @@
+name: Bug report
+description: Report reproducible incorrect behavior without sharing sensitive logs
+title: "[Bug]: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. **Do not attach production logs, credentials, personal data, or unreviewed LogLoom reports.** Use the smallest synthetic example possible.
+  - type: input
+    id: version
+    attributes:
+      label: LogLoom version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Runtime and operating system
+      placeholder: "Node 20.15.1, macOS 15"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Parsing / format detection
+        - Redaction / privacy
+        - Template clustering
+        - Anomaly detection
+        - Latency statistics
+        - HTML report
+        - JSON report
+        - CLI / packaging
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include the command and synthetic input. Replace every real value.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Privacy check
+      options:
+        - label: I verified that this issue contains no real secrets, production logs, or personal data.
+          required: true
+        - label: I searched existing issues for the same problem.
+          required: true

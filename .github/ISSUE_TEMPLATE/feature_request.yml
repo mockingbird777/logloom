@@ -1,0 +1,55 @@
+name: Feature request
+description: Propose a focused improvement to local log investigation
+title: "[Feature]: "
+labels: [enhancement, triage]
+body:
+  - type: markdown
+    attributes:
+      value: LogLoom prioritizes local-first operation, safe defaults, deterministic behavior, and a small dependency surface.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Investigation problem
+      description: What question is difficult to answer today? Describe the need before the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Primary surface
+      options:
+        - CLI
+        - Parser
+        - Privacy / redaction
+        - Analysis algorithm
+        - HTML report
+        - JSON / library API
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and resource impact
+      description: Could this retain more input, create a network request, add a dependency, or increase memory/cardinality?
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This can preserve LogLoom's no-backend, no-telemetry default.
+          required: true
+        - label: I searched existing issues and the roadmap.
+          required: true

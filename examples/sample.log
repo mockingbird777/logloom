@@ -1,0 +1,6 @@
+{"timestamp":"2026-07-19T08:00:01Z","level":"info","service":"api","message":"request 1001 completed for ada@example.com","duration_ms":42}
+time=2026-07-19T08:00:20Z level=info service=api latency=48ms msg="request 1002 completed for 203.0.113.42"
+2026-07-19T08:01:03Z WARN [worker] retry job 5f3dba36-aefd-4b45-a022-82cb4f3f8cbe duration=120ms
+2026-07-19T08:02:04Z ERROR [worker] job 8821 failed token=do-not-share-this-token duration=920ms
+2026-07-19T08:02:06Z ERROR [worker] job 8822 failed duration=1100ms
+2026-07-19T08:02:08Z ERROR [worker] job 8823 failed duration=1250ms
