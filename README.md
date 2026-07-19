@@ -4,6 +4,7 @@
   <p><strong>Turn messy production logs into an investigation you can search, share, and act on — without uploading a byte.</strong></p>
 
   <p>
+    <a href="https://github.com/mockingbird777/logloom/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mockingbird777/logloom/actions/workflows/ci.yml/badge.svg?branch=main"></a>
     <img alt="version 0.1.0" src="https://img.shields.io/badge/version-0.1.0-55d7d0?style=flat-square">
     <img alt="Node.js 20 or newer" src="https://img.shields.io/badge/node-%E2%89%A520-5ee6a8?style=flat-square">
     <img alt="zero runtime dependencies" src="https://img.shields.io/badge/runtime_dependencies-0-a78bfa?style=flat-square">
