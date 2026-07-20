@@ -5,7 +5,7 @@
 
   <p>
     <a href="https://github.com/mockingbird777/logloom/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mockingbird777/logloom/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-    <img alt="version 0.1.0" src="https://img.shields.io/badge/version-0.1.0-55d7d0?style=flat-square">
+    <img alt="version 0.2.0" src="https://img.shields.io/badge/version-0.2.0-55d7d0?style=flat-square">
     <img alt="Node.js 20 or newer" src="https://img.shields.io/badge/node-%E2%89%A520-5ee6a8?style=flat-square">
     <img alt="zero runtime dependencies" src="https://img.shields.io/badge/runtime_dependencies-0-a78bfa?style=flat-square">
     <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-ffca80?style=flat-square">
@@ -17,6 +17,28 @@ LogLoom is a privacy-first, local-first CLI for the first 15 minutes of a log in
 The report makes **no network requests**. Email it, attach it to an incident, or keep it beside your logs: the data and the investigation remain yours.
 
 <p align="center"><a href="https://mockingbird777.github.io/logloom/"><strong>Explore a live private-by-default investigation report →</strong></a></p>
+
+### See the signal in 30 seconds
+
+No log file is required for the first run. The built-in synthetic incident exercises parsing, redaction, clustering, and anomaly detection together:
+
+```bash
+npx --yes github:mockingbird777/logloom demo --html logloom-demo.html --open
+```
+
+```text
+19 events  ·  6 errors (31.58%)  ·  4 templates
+3 services  ·  3 anomalies  ·  3 redactions
+Latency  p50 118ms  ·  p95 2.4s  ·  p99 2.5s
+
+[CRITICAL] Latency regression detected
+[CRITICAL] Error burst detected
+[HIGH]     Template frequency spike
+```
+
+<div align="center">
+  <img src="assets/report-preview.svg" alt="LogLoom offline incident report showing error and latency anomalies" width="100%">
+</div>
 
 ## Why LogLoom?
 
@@ -38,7 +60,10 @@ Requires Node.js 20 or newer.
 Until the first npm registry release, run LogLoom directly from its public GitHub repository. The package's `prepare` hook performs the TypeScript build during installation.
 
 ```bash
-# Analyze a file and open the resulting report in your browser
+# Try the complete pipeline and open its offline report
+npx --yes github:mockingbird777/logloom demo --html logloom-demo.html --open
+
+# Analyze a file and write a browser-ready report
 npx --yes github:mockingbird777/logloom analyze ./app.log --html ./logloom-report.html
 
 # Stream from another command
@@ -62,7 +87,7 @@ node dist/cli.js examples/sample.log --html report.html
 The terminal also gives a fast summary:
 
 ```text
-LogLoom 0.1.0  examples/sample.log
+LogLoom 0.2.0  examples/sample.log
 ────────────────────────────────────────────────────────────────────────
 6 events  ·  3 errors (50%)  ·  4 templates
 2 services  ·  0 anomalies  ·  3 redactions
@@ -85,8 +110,11 @@ Latency  p50 520ms  ·  p95 1.2s  ·  p99 1.2s
 
 ```text
 logloom analyze [file|-] [options]
+logloom demo [options]
 
+--demo                     use the built-in synthetic incident
 --html <path>              write a self-contained HTML report
+--open                     open the file passed to --html
 --json <path>              write JSON (use - for stdout)
 --format summary|json|html print a format to stdout
 --bucket <duration>        time bucket: 30s, 1m, 5m (default 1m)
@@ -200,7 +228,7 @@ The repository intentionally keeps the stack small: strict TypeScript, Node.js b
 ## Limitations
 
 - Multiline stack traces are currently treated as individual lines. A future multiline joiner will make this configurable.
-- IPv6 textual addresses are not redacted in `0.1.0`; use a custom pattern when needed.
+- IPv6 textual addresses are not redacted in `0.2.0`; use a custom pattern when needed.
 - Time buckets are populated only where events exist; the chart does not synthesize empty buckets.
 - Template mining favors bounded cost and explainability over semantic similarity.
 - Extremely high-cardinality services or templates still consume aggregate memory.
@@ -216,7 +244,7 @@ The repository intentionally keeps the stack small: strict TypeScript, Node.js b
 
 ## Contributing and security
 
-Bug reports, new fixtures, parser improvements, and careful false-positive reductions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before opening a pull request.
+Bug reports, new fixtures, parser improvements, and careful false-positive reductions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) before opening a pull request. A minimal synthetic line that parses, clusters, or redacts incorrectly is a complete and useful first contribution.
 
 Logs often contain credentials. Please report vulnerabilities through the private process in [SECURITY.md](SECURITY.md), not a public issue.
 

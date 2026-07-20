@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { createReadStream } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import { createGunzip } from 'node:zlib';
-import type { Readable } from 'node:stream';
-import { basename } from 'node:path';
+import { Readable } from 'node:stream';
+import { basename, resolve } from 'node:path';
 import { analyzeLines, type InputLine } from './analyzer.js';
 import { renderHtmlReport } from './report/html.js';
 import { renderJsonReport } from './report/json.js';
@@ -14,6 +15,7 @@ type OutputFormat = 'summary' | 'json' | 'html';
 
 interface CliOptions {
   input?: string;
+  demo: boolean;
   jsonPath?: string;
   htmlPath?: string;
   format: OutputFormat;
@@ -22,6 +24,7 @@ interface CliOptions {
   configPath?: string;
   maxLineLength: number;
   top: number;
+  open: boolean;
   failOnAnomaly: boolean;
   quiet: boolean;
   help: boolean;
@@ -35,17 +38,21 @@ LogLoom v${VERSION} — privacy-first local log investigation
 
 Usage:
   logloom analyze [file|-] [options]
+  logloom demo [options]
   cat app.log | logloom analyze [options]
 
 Inputs:
   file                       NDJSON/JSONL, logfmt, plain text, or .gz file
   -                          read stdin explicitly (also the default when piped)
+  demo                       analyze a built-in synthetic incident
+  --demo                     use the same built-in incident in flag form
 
 Outputs:
   --html <path>              write a self-contained interactive HTML report
   --json <path>              write a machine-readable JSON report (use - for stdout)
   --format <summary|json|html>
                              print this format to stdout (default: summary)
+  --open                     open the file passed to --html
 
 Analysis:
   --bucket <duration>        time bucket, e.g. 30s, 1m, 5m (default: 1m)
@@ -84,13 +91,16 @@ function parseByteSize(value: string): number {
 
 export function parseArguments(argv: string[]): CliOptions {
   const args = [...argv];
-  if (args[0] === 'analyze') args.shift();
+  const demoCommand = args[0] === 'demo';
+  if (args[0] === 'analyze' || demoCommand) args.shift();
   const options: CliOptions = {
+    demo: demoCommand,
     format: 'summary',
     bucketMs: 60_000,
     redact: true,
     maxLineLength: 2 * 1024 * 1024,
     top: 10,
+    open: false,
     failOnAnomaly: false,
     quiet: false,
     help: false,
@@ -107,6 +117,8 @@ export function parseArguments(argv: string[]): CliOptions {
     if (arg === '-h' || arg === '--help') options.help = true;
     else if (arg === '-v' || arg === '--version') options.version = true;
     else if (arg === '-q' || arg === '--quiet') options.quiet = true;
+    else if (arg === '--demo') options.demo = true;
+    else if (arg === '--open') options.open = true;
     else if (arg === '--no-redact') options.redact = false;
     else if (arg === '--fail-on-anomaly') options.failOnAnomaly = true;
     else if (arg === '--json') {
@@ -132,13 +144,62 @@ export function parseArguments(argv: string[]): CliOptions {
     else positionals.push(arg);
   }
   if (positionals.length > 1) throw new UsageError('Provide at most one input file');
+  if (options.demo && positionals.length > 0) throw new UsageError('The demo uses built-in data and cannot be combined with an input file');
   if (positionals[0] !== undefined) options.input = positionals[0];
   const stdoutOutputs = Number(options.jsonPath === '-') + Number(options.htmlPath === '-') + Number(options.format !== 'summary');
   if (stdoutOutputs > 1) throw new UsageError('Only one JSON or HTML output may target stdout');
   if (options.jsonPath && options.htmlPath && options.jsonPath !== '-' && options.jsonPath === options.htmlPath) {
     throw new UsageError('--json and --html must use different output paths');
   }
+  if (options.open && (!options.htmlPath || options.htmlPath === '-')) throw new UsageError('--open requires --html <path>');
   return options;
+}
+
+function demoInput(): { stream: Readable; source: string } {
+  const lines: string[] = [];
+  for (let minute = 0; minute < 4; minute += 1) {
+    const timestamp = `2026-07-19T08:0${minute}:`;
+    lines.push(JSON.stringify({
+      timestamp: `${timestamp}05Z`, level: 'info', service: 'checkout',
+      message: `checkout request ${1_001 + minute} completed for ${minute === 0 ? 'ada@example.com' : `customer-${minute}`}`,
+      duration_ms: 82 + minute * 7,
+    }));
+    lines.push(JSON.stringify({
+      timestamp: `${timestamp}22Z`, level: 'info', service: 'inventory',
+      message: `inventory reservation ${7_101 + minute} confirmed`, duration_ms: 68 + minute * 5,
+      client_ip: minute === 1 ? '203.0.113.42' : undefined,
+    }));
+    lines.push(JSON.stringify({
+      timestamp: `${timestamp}41Z`, level: 'warn', service: 'payments',
+      message: `payment attempt ${8_201 + minute} failed; retry scheduled`, duration_ms: 118 + minute * 6,
+    }));
+  }
+  for (let index = 0; index < 6; index += 1) {
+    lines.push(JSON.stringify({
+      timestamp: `2026-07-19T08:04:${String(5 + index * 7).padStart(2, '0')}Z`,
+      level: 'error', service: 'payments',
+      message: `payment attempt ${9_001 + index} failed; retry scheduled`,
+      duration_ms: 1_850 + index * 130,
+      ...(index === 0 ? { authorization: 'Bearer demo-token-that-must-never-survive' } : {}),
+    }));
+  }
+  lines.push(JSON.stringify({
+    timestamp: '2026-07-19T08:04:58Z', level: 'info', service: 'checkout',
+    message: 'health probe completed', duration_ms: 95,
+  }));
+  return { stream: Readable.from(lines.map((line) => `${line}\n`)), source: 'built-in-demo.log' };
+}
+
+async function openInBrowser(file: string): Promise<void> {
+  const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer.exe' : 'xdg-open';
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, [file], { detached: true, stdio: 'ignore' });
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
 }
 
 async function loadRedactionConfig(path: string | undefined): Promise<RedactionConfig | undefined> {
@@ -250,14 +311,14 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
   }
   if (options.help) { process.stdout.write(HELP.trimStart()); return 0; }
   if (options.version) { process.stdout.write(`${VERSION}\n`); return 0; }
-  if (!options.input && process.stdin.isTTY) {
+  if (!options.demo && !options.input && process.stdin.isTTY) {
     process.stderr.write('logloom: provide a log file or pipe logs on stdin\nTry "logloom --help" for usage.\n');
     return 2;
   }
 
   try {
     const config = await loadRedactionConfig(options.configPath);
-    const input = inputStream(options.input);
+    const input = options.demo ? demoInput() : inputStream(options.input);
     const lines = boundedLines(input.stream, options.maxLineLength);
     const analyzeOptions = {
       source: input.source,
@@ -276,6 +337,14 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
     if (options.htmlPath) {
       if (options.htmlPath === '-') process.stdout.write(html());
       else { await writeFileAtomic(options.htmlPath, html()); if (!options.quiet) process.stderr.write(`HTML report → ${options.htmlPath}\n`); }
+    }
+    if (options.open && options.htmlPath && options.htmlPath !== '-') {
+      try {
+        await openInBrowser(resolve(options.htmlPath));
+        if (!options.quiet) process.stderr.write('Opened report in your default browser.\n');
+      } catch (error) {
+        process.stderr.write(`Could not open the browser automatically: ${messageOf(error)}\n`);
+      }
     }
     if (options.format === 'json') process.stdout.write(json());
     else if (options.format === 'html') process.stdout.write(html());

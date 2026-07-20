@@ -9,6 +9,14 @@ All notable changes to LogLoom are documented here. The format follows [Keep a C
 - Configurable multiline stack-trace joining.
 - Side-by-side report comparison.
 
+## [0.2.0] - 2026-07-20
+
+### Added
+
+- `logloom demo`, a built-in synthetic incident that demonstrates redaction, template mining, error bursts, and latency regressions without requiring a log file.
+- `--open` for launching a generated HTML investigation in the default browser.
+- A report preview and copy-paste first-run path in the README.
+
 ## [0.1.0] - 2026-07-19
 
 ### Added
@@ -26,5 +34,6 @@ All notable changes to LogLoom are documented here. The format follows [Keep a C
 - Automation-friendly CLI output and exit codes.
 - Strict TypeScript build, Node test suite, continuous integration, and community health files.
 
-[Unreleased]: https://github.com/mockingbird777/logloom/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mockingbird777/logloom/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mockingbird777/logloom/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mockingbird777/logloom/releases/tag/v0.1.0

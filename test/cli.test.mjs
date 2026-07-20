@@ -22,6 +22,31 @@ test('CLI emits JSON to stdout', async () => {
   assert.ok(report.privacy.redactions > 0);
 });
 
+test('demo command produces a useful synthetic incident without an input file', async () => {
+  const { stdout, stderr } = await exec(process.execPath, [cli, 'demo', '--format', 'json']);
+  assert.equal(stderr, '');
+  const report = JSON.parse(stdout);
+  assert.equal(report.metadata.source, 'built-in-demo.log');
+  assert.equal(report.summary.events, 19);
+  assert.ok(report.anomalies.some((item) => item.type === 'error-burst'));
+  assert.ok(report.anomalies.some((item) => item.type === 'latency-spike'));
+  assert.ok(report.privacy.redactions >= 3);
+});
+
+test('demo command rejects a conflicting input file', async () => {
+  await assert.rejects(
+    exec(process.execPath, [cli, 'demo', fixture]),
+    (error) => error.code === 2 && /cannot be combined/.test(error.stderr),
+  );
+});
+
+test('--open requires a file-backed HTML report', async () => {
+  await assert.rejects(
+    exec(process.execPath, [cli, 'demo', '--open']),
+    (error) => error.code === 2 && /requires --html/.test(error.stderr),
+  );
+});
+
 test('--json - emits only JSON and no terminal summary', async () => {
   const { stdout, stderr } = await exec(process.execPath, [cli, fixture, '--json', '-']);
   assert.equal(stderr, '');
