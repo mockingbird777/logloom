@@ -39,11 +39,22 @@ test('redacts before samples are retained and renders safe reports', async () =>
   assert.doesNotMatch(html, /<img src=x onerror/);
   assert.match(html, /\\u003c\/script\\u003e\\u003cscript\\u003ealert/);
   assert.match(html, /evil&amp;lt;\/title&amp;gt;|evil&lt;\/title&gt;/);
+  const escapedTitle = 'LogLoom · [REDACTED:EMAIL]/evil&lt;/title&gt;&lt;script&gt;sourceAttack()&lt;/script&gt;&amp;&quot;';
+  const description = 'Privacy-first, local-first log investigation with redaction, anomaly detection, and interactive reports.';
+  assert.ok(html.includes(`<meta name="description" content="${description}">`));
+  assert.ok(html.includes('<meta property="og:type" content="website">'));
+  assert.ok(html.includes(`<meta property="og:title" content="${escapedTitle}">`));
+  assert.ok(html.includes(`<meta property="og:description" content="${description}">`));
+  assert.ok(html.includes('<meta name="twitter:card" content="summary">'));
+  assert.ok(html.includes(`<meta name="twitter:title" content="${escapedTitle}">`));
+  assert.ok(html.includes(`<meta name="twitter:description" content="${description}">`));
+  assert.doesNotMatch(html, /(?:property|name)="og:image"/);
   assert.match(
     html,
     /<a href="https:\/\/github\.com\/mockingbird777\/logloom" target="_blank" rel="noopener noreferrer">Explore LogLoom on GitHub ↗<\/a>/,
   );
-  assert.doesNotMatch(html, /<(?:script|img|link)\b[^>]*(?:src|href)="https?:\/\//i);
+  assert.doesNotMatch(html, /<(?:script|img|link|iframe)\b[^>]*(?:src|href)="https?:\/\//i);
+  assert.doesNotMatch(html, /(?:fetch\s*\(|XMLHttpRequest|sendBeacon)/);
 });
 
 test('accounts for malformed and empty lines', async () => {
