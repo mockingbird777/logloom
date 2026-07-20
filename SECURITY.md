@@ -6,7 +6,7 @@ LogLoom processes data that routinely contains credentials and personal informat
 
 | Version | Security fixes |
 |---|---|
-| `0.1.x` | Supported |
+| `0.2.x` | Supported |
 | Older pre-release snapshots | Not supported |
 
 Until LogLoom reaches `1.0`, security fixes are released on the latest minor version.

@@ -6,3 +6,6 @@ contact_links:
   - name: Read the security policy
     url: https://github.com/mockingbird777/logloom/blob/main/SECURITY.md
     about: Learn what to include and how reports are handled.
+  - name: Questions and ideas
+    url: https://github.com/mockingbird777/logloom/discussions
+    about: Ask for help or discuss an idea before opening an issue.
