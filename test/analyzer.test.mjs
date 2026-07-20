@@ -39,6 +39,11 @@ test('redacts before samples are retained and renders safe reports', async () =>
   assert.doesNotMatch(html, /<img src=x onerror/);
   assert.match(html, /\\u003c\/script\\u003e\\u003cscript\\u003ealert/);
   assert.match(html, /evil&amp;lt;\/title&amp;gt;|evil&lt;\/title&gt;/);
+  assert.match(
+    html,
+    /<a href="https:\/\/github\.com\/mockingbird777\/logloom" target="_blank" rel="noopener noreferrer">Explore LogLoom on GitHub ↗<\/a>/,
+  );
+  assert.doesNotMatch(html, /<(?:script|img|link)\b[^>]*(?:src|href)="https?:\/\//i);
 });
 
 test('accounts for malformed and empty lines', async () => {
