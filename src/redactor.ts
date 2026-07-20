@@ -13,6 +13,27 @@ const DEFAULT_FIELDS = [
   'private_key', 'client_secret', 'aws_secret_access_key', 'connection_string',
 ];
 
+// IPv6 building blocks. The alternation is exhaustive rather than a single
+// loose expression so that colon-separated look-alikes (timestamps, MAC
+// addresses, C++ `::` scope operators) never match: every compressed form
+// requires a literal `::`, and the full form requires all eight groups.
+const H16 = '[0-9A-Fa-f]{1,4}';
+const IPV4 = '(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}';
+const IPV6 = [
+  `(?:${H16}:){6}${IPV4}`, // x:x:x:x:x:x:d.d.d.d
+  `::(?:${H16}:){0,5}${IPV4}`, // ::ffff:d.d.d.d and other compressed-mixed forms
+  `(?:${H16}:){1,5}:(?:${H16}:){0,4}${IPV4}`, // x::x:d.d.d.d
+  `(?:${H16}:){7}${H16}`, // full form
+  `(?:${H16}:){1,7}:`, // x:: through x:x:x:x:x:x:x::
+  `(?:${H16}:){1,6}:${H16}`, // x::x
+  `(?:${H16}:){1,5}(?::${H16}){1,2}`,
+  `(?:${H16}:){1,4}(?::${H16}){1,3}`,
+  `(?:${H16}:){1,3}(?::${H16}){1,4}`,
+  `(?:${H16}:){1,2}(?::${H16}){1,5}`,
+  `${H16}:(?::${H16}){1,6}`, // x::x:x:x:x:x:x
+  `:(?::${H16}){1,7}`, // ::1 and friends (bare `::` is deliberately excluded)
+].join('|');
+
 const DEFAULT_PATTERNS: RedactionPatternConfig[] = [
   { name: 'JWT', regex: '\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{4,}\\b' },
   { name: 'BEARER', regex: '\\bBearer\\s+[A-Za-z0-9._~+/-]{8,}={0,2}', flags: 'gi' },
@@ -21,6 +42,9 @@ const DEFAULT_PATTERNS: RedactionPatternConfig[] = [
   { name: 'PRIVATE_KEY', regex: '-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\\s\\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----', flags: 'g' },
   { name: 'SECRET', regex: "\\b((?:api[_-]?key|token|secret|password|passwd|pwd|client[_-]?secret|aws[_-]?secret[_-]?access[_-]?key)[\"']?\\s*[=:]\\s*)[\"']?([^\\s,\"']{4,})", flags: 'gi', replacement: '$1[REDACTED:SECRET]' },
   { name: 'EMAIL', regex: '\\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}\\b', flags: 'gi' },
+  // IPv6 must run before IPv4 so IPv4-mapped forms (::ffff:192.0.2.1) are
+  // redacted whole instead of leaving `::ffff:` behind. Both count as 'IP'.
+  { name: 'IP', regex: `(?<![A-Za-z0-9:.])(?:${IPV6})(?![A-Za-z0-9:]|\\.\\d)`, flags: 'g' },
   { name: 'IP', regex: '(?<![\\d.])(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}(?![\\d.])', flags: 'g' },
   { name: 'ABSOLUTE_PATH', regex: '(?<![A-Za-z0-9])(?:[A-Za-z]:\\\\(?:Users|Windows|Program Files|ProgramData|Temp)\\\\[^\\s\"\'<>]+|/(?:Users|home|root|private|tmp|var|etc|opt|usr)/[^\\s\"\'<>]+)', flags: 'gi' },
 ];

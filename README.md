@@ -228,7 +228,7 @@ The repository intentionally keeps the stack small: strict TypeScript, Node.js b
 ## Limitations
 
 - Multiline stack traces are currently treated as individual lines. A future multiline joiner will make this configurable.
-- IPv6 textual addresses are not redacted in `0.2.0`; use a custom pattern when needed.
+- IPv6 addresses are redacted by default (full, compressed, loopback, and IPv4-mapped forms; bracketed `[host]:port` keeps the port). The unspecified address `::` alone is left as-is.
 - Time buckets are populated only where events exist; the chart does not synthesize empty buckets.
 - Template mining favors bounded cost and explainability over semantic similarity.
 - Extremely high-cardinality services or templates still consume aggregate memory.
