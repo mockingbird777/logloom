@@ -33,6 +33,30 @@ test('demo command produces a useful synthetic incident without an input file', 
   assert.ok(report.privacy.redactions >= 3);
 });
 
+test('CLI enables schema 1.1 precursor output with a configurable window', async () => {
+  const { stdout, stderr } = await exec(process.execPath, [cli, 'demo', '--precursors', '--sequence-window', '30s', '--format', 'json']);
+  assert.equal(stderr, '');
+  const report = JSON.parse(stdout);
+  assert.equal(report.schemaVersion, '1.1');
+  assert.equal(report.metadata.precursorAnalysis.sequenceWindowMs, 30_000);
+  assert.equal(report.metadata.precursorAnalysis.maxSequenceEvents, 100_000);
+  assert.ok(Array.isArray(report.precursors));
+});
+
+test('terminal summary labels precursor candidates as association, not causality', async () => {
+  const { stdout, stderr } = await exec(process.execPath, [cli, 'demo', '--precursors']);
+  assert.equal(stderr, '');
+  assert.match(stdout, /Candidate failure precursors \(temporal association, not causality\)/);
+  assert.match(stdout, /processor connection <num> degraded; fallback queued → payment attempt <num> failed; retry scheduled/);
+});
+
+test('--sequence-window requires explicit precursor analysis', async () => {
+  await assert.rejects(
+    exec(process.execPath, [cli, 'demo', '--sequence-window', '30s']),
+    (error) => error.code === 2 && /requires --precursors/.test(error.stderr),
+  );
+});
+
 test('demo command rejects a conflicting input file', async () => {
   await assert.rejects(
     exec(process.execPath, [cli, 'demo', fixture]),

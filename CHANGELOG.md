@@ -4,6 +4,17 @@ All notable changes to LogLoom are documented here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in `--precursors` analysis that links already-redacted, same-service source templates to their nearest subsequent error/fatal template and reports occurrences, support, support percentage, lift, and median gap.
+- `--sequence-window <duration>` for configuring the precursor look-ahead window (default: five minutes).
+- Schema `1.1` precursor output across terminal, JSON, and self-contained HTML reports; default analysis remains schema `1.0` with no sequence-state allocation.
+- A bounded 100,000-event sequence store with explicit truncation metadata and notes, plus a programmatic `maxSequenceEvents` test boundary.
+
+### Fixed
+
+- Rejected overlong compressed IPv4-mixed IPv6 look-alikes instead of partially redacting them; explicit h16 groups on both sides of `::` are now jointly capped at five.
+
 ### Planned
 
 - Configurable multiline stack-trace joining.

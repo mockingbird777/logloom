@@ -68,6 +68,10 @@ test('redacts IPv6 addresses in full, compressed, loopback, and IPv4-mapped form
     'fe80::1ff:fe23:4567:890a',
     '::1',
     '::ffff:192.0.2.1',
+    '2001:db8::192.0.2.1',
+    '2001:db8::ffff:192.0.2.1',
+    '1:2:3:4:5::192.0.2.1',
+    '1:2:3:4:5:6:192.0.2.1',
     '2001:DB8::A',
   ];
   for (const address of addresses) {
@@ -91,6 +95,11 @@ test('IPv4-mapped IPv6 is redacted whole, not left as a ::ffff: prefix', () => {
   assert.equal(output, 'src [REDACTED:IP] accepted');
 });
 
+test('still redacts an IPv4 address after a plain-text key separator', () => {
+  const redactor = new Redactor();
+  assert.equal(redactor.redactString('ip:203.0.113.7'), 'ip:[REDACTED:IP]');
+});
+
 test('IPv6 counts under the existing IP category and respects disabling', () => {
   const redactor = new Redactor();
   redactor.redactString('from 2001:db8::1 and 203.0.113.7');
@@ -110,6 +119,9 @@ test('does not redact IPv6 look-alikes: timestamps, UUIDs, hashes, MACs, and C++
     'mac aa:bb:cc:dd:ee:ff',
     'calling std::vector::push_back',
     'ratio 1:2',
+    'invalid mixed IPv6 1:2:3:4:5::6:7:8:192.0.2.1',
+    'invalid mixed IPv6 1:2:3:4:5:6::192.0.2.1',
+    'invalid mixed IPv6 1:2:3:4::5:6:192.0.2.1',
   ];
   for (const input of negatives) {
     assert.equal(redactor.redactString(input), input, input);

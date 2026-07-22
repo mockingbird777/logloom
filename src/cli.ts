@@ -20,6 +20,8 @@ interface CliOptions {
   htmlPath?: string;
   format: OutputFormat;
   bucketMs: number;
+  precursors: boolean;
+  sequenceWindowMs: number;
   redact: boolean;
   configPath?: string;
   maxLineLength: number;
@@ -56,6 +58,9 @@ Outputs:
 
 Analysis:
   --bucket <duration>        time bucket, e.g. 30s, 1m, 5m (default: 1m)
+  --precursors               find candidate templates that precede failures
+  --sequence-window <duration>
+                             look-ahead window (default: 5m; requires --precursors)
   --top <number>             templates shown in terminal summary (default: 10)
   --max-line-length <size>   truncate oversized lines, e.g. 2mb (default: 2mb)
   --fail-on-anomaly          exit 1 when an anomaly is detected
@@ -97,6 +102,8 @@ export function parseArguments(argv: string[]): CliOptions {
     demo: demoCommand,
     format: 'summary',
     bucketMs: 60_000,
+    precursors: false,
+    sequenceWindowMs: 5 * 60_000,
     redact: true,
     maxLineLength: 2 * 1024 * 1024,
     top: 10,
@@ -107,6 +114,7 @@ export function parseArguments(argv: string[]): CliOptions {
     version: false,
   };
   const positionals: string[] = [];
+  let sequenceWindowSpecified = false;
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
     if (!arg) continue;
@@ -121,6 +129,7 @@ export function parseArguments(argv: string[]): CliOptions {
     else if (arg === '--open') options.open = true;
     else if (arg === '--no-redact') options.redact = false;
     else if (arg === '--fail-on-anomaly') options.failOnAnomaly = true;
+    else if (arg === '--precursors') options.precursors = true;
     else if (arg === '--json') {
       const [value, next] = takeValue(args, index, arg); options.jsonPath = value; index = next;
     } else if (arg === '--html') {
@@ -133,6 +142,11 @@ export function parseArguments(argv: string[]): CliOptions {
       const [value, next] = takeValue(args, index, arg); index = next;
       try { options.bucketMs = parseDuration(value); } catch { throw new UsageError(`Invalid bucket duration: ${value}`); }
       if (options.bucketMs < 1_000) throw new UsageError('--bucket must be at least 1s');
+    } else if (arg === '--sequence-window') {
+      const [value, next] = takeValue(args, index, arg); index = next;
+      try { options.sequenceWindowMs = parseDuration(value); } catch { throw new UsageError(`Invalid sequence window: ${value}`); }
+      if (!Number.isSafeInteger(options.sequenceWindowMs) || options.sequenceWindowMs < 1) throw new UsageError('--sequence-window must be at least 1ms');
+      sequenceWindowSpecified = true;
     } else if (arg === '--top') {
       const [value, next] = takeValue(args, index, arg); index = next; options.top = Number(value);
       if (!Number.isInteger(options.top) || options.top < 1 || options.top > 1_000) throw new UsageError('--top must be an integer from 1 to 1000');
@@ -145,6 +159,7 @@ export function parseArguments(argv: string[]): CliOptions {
   }
   if (positionals.length > 1) throw new UsageError('Provide at most one input file');
   if (options.demo && positionals.length > 0) throw new UsageError('The demo uses built-in data and cannot be combined with an input file');
+  if (sequenceWindowSpecified && !options.precursors) throw new UsageError('--sequence-window requires --precursors');
   if (positionals[0] !== undefined) options.input = positionals[0];
   const stdoutOutputs = Number(options.jsonPath === '-') + Number(options.htmlPath === '-') + Number(options.format !== 'summary');
   if (stdoutOutputs > 1) throw new UsageError('Only one JSON or HTML output may target stdout');
@@ -171,7 +186,7 @@ function demoInput(): { stream: Readable; source: string } {
     }));
     lines.push(JSON.stringify({
       timestamp: `${timestamp}41Z`, level: 'warn', service: 'payments',
-      message: `payment attempt ${8_201 + minute} failed; retry scheduled`, duration_ms: 118 + minute * 6,
+      message: `processor connection ${8_201 + minute} degraded; fallback queued`, duration_ms: 118 + minute * 6,
     }));
   }
   for (let index = 0; index < 6; index += 1) {
@@ -184,7 +199,7 @@ function demoInput(): { stream: Readable; source: string } {
     }));
   }
   lines.push(JSON.stringify({
-    timestamp: '2026-07-19T08:04:58Z', level: 'info', service: 'checkout',
+    timestamp: '2026-07-19T08:04:58Z', level: 'info', service: 'payments',
     message: 'health probe completed', duration_ms: 95,
   }));
   return { stream: Readable.from(lines.map((line) => `${line}\n`)), source: 'built-in-demo.log' };
@@ -293,6 +308,20 @@ function terminalSummary(report: AnalysisReport, top: number): string {
     rows.push('', 'Anomalies');
     report.anomalies.slice(0, 5).forEach((item) => rows.push(`  [${item.severity.toUpperCase()}] ${item.title} · ${item.timestamp}`));
   }
+  if (report.metadata.precursorAnalysis) {
+    const candidates = report.precursors ?? [];
+    const sequence = report.metadata.precursorAnalysis;
+    rows.push(
+      '',
+      'Candidate failure precursors (temporal association, not causality)',
+      `  ${candidates.length.toLocaleString()} candidate(s) · ${sequence.eventsRetained.toLocaleString()}/${sequence.eventsSeen.toLocaleString()} timestamped events retained · ${formatDuration(sequence.sequenceWindowMs)} window`,
+    );
+    if (candidates.length === 0) rows.push('  (none met support ≥ 2 and lift ≥ 1.25)');
+    candidates.slice(0, Math.min(top, 10)).forEach((item) => {
+      rows.push(`  ${item.service}: ${item.sourceTemplate} → ${item.failureTemplate}`);
+      rows.push(`    ${item.support}/${item.occurrences} support (${item.supportPercent}%) · ${item.lift}× lift · median ${formatDuration(item.medianGapMs)}`);
+    });
+  }
   rows.push('', `Analyzed in ${formatDuration(report.metadata.durationMs)} · redaction ${report.metadata.redactionEnabled ? 'on' : 'OFF'}`);
   return `${rows.join('\n')}\n`;
 }
@@ -325,6 +354,8 @@ export async function runCli(argv = process.argv.slice(2)): Promise<number> {
       bucketMs: options.bucketMs,
       redact: options.redact,
       maxLineLength: options.maxLineLength,
+      precursors: options.precursors,
+      sequenceWindowMs: options.sequenceWindowMs,
       ...(config ? { redactionConfig: config } : {}),
     };
     const report = await analyzeLines(lines, analyzeOptions);

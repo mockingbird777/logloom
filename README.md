@@ -12,7 +12,7 @@
   </p>
 </div>
 
-LogLoom is a privacy-first, local-first CLI for the first 15 minutes of a log investigation. It streams NDJSON, logfmt, and familiar plain-text logs; removes likely secrets and personal data; discovers repeating message templates; surfaces bursts and latency regressions; and produces a polished, self-contained HTML report.
+LogLoom is a privacy-first, local-first CLI for the first 15 minutes of a log investigation. It streams NDJSON, logfmt, and familiar plain-text logs; removes likely secrets and personal data; discovers repeating message templates; surfaces bursts and latency regressions; optionally finds candidate signals that repeatedly precede failures; and produces a polished, self-contained HTML report.
 
 The report makes **no network requests**. Email it, attach it to an incident, or keep it beside your logs: the data and the investigation remain yours.
 
@@ -23,17 +23,21 @@ The report makes **no network requests**. Email it, attach it to an incident, or
 No log file is required for the first run. The built-in synthetic incident exercises parsing, redaction, clustering, and anomaly detection together:
 
 ```bash
-npx --yes github:mockingbird777/logloom demo --html logloom-demo.html --open
+npx --yes github:mockingbird777/logloom demo --precursors --html logloom-demo.html --open
 ```
 
 ```text
-19 events  ·  6 errors (31.58%)  ·  4 templates
-3 services  ·  3 anomalies  ·  3 redactions
+19 events  ·  6 errors (31.58%)  ·  5 templates
+3 services  ·  2 anomalies  ·  3 redactions
 Latency  p50 118ms  ·  p95 2.4s  ·  p99 2.5s
 
 [CRITICAL] Latency regression detected
 [CRITICAL] Error burst detected
-[HIGH]     Template frequency spike
+
+Candidate failure precursors (temporal association, not causality)
+payments: processor connection <num> degraded; fallback queued
+       → payment attempt <num> failed; retry scheduled
+4/4 support (100%) · 1.25× lift · median 1.9m
 ```
 
 <div align="center">
@@ -47,6 +51,7 @@ You should not need to provision a data pipeline just to answer “what changed?
 | Raw question | LogLoom answer |
 |---|---|
 | Which failures dominate? | Drain-like templates ranked by count and error volume |
+| What tends to happen just before a failure? | Opt-in, same-service precursor candidates ranked by support and lift |
 | Did errors arrive gradually or all at once? | Time buckets with robust burst detection |
 | Is the service slower? | Exact or bounded-memory p50, p95, and p99 latency |
 | Which service/level is noisy? | Level, service, and template breakdowns |
@@ -61,7 +66,7 @@ Until the first npm registry release, run LogLoom directly from its public GitHu
 
 ```bash
 # Try the complete pipeline and open its offline report
-npx --yes github:mockingbird777/logloom demo --html logloom-demo.html --open
+npx --yes github:mockingbird777/logloom demo --precursors --html logloom-demo.html --open
 
 # Analyze a file and write a browser-ready report
 npx --yes github:mockingbird777/logloom analyze ./app.log --html ./logloom-report.html
@@ -101,6 +106,7 @@ Latency  p50 520ms  ·  p95 1.2s  ·  p99 1.2s
 - **Safe-by-default redaction** of JWTs, bearer tokens, GitHub tokens, AWS access keys, embedded secrets, emails, IPv4 addresses, common absolute filesystem paths, private keys, and sensitive structured fields.
 - **Drain-like template mining** that turns `request 9217 failed` and `request 9341 failed` into `request <num> failed`.
 - **Anomaly signals** for error bursts, template-frequency spikes, and p95 latency regressions using median/MAD baselines with a variance-aware fallback.
+- **Candidate failure precursors** that connect a non-error template to its nearest subsequent error/fatal template in the same service, then filter weak associations by support and lift.
 - **Latency p50/p95/p99** from common `duration`, `latency`, `elapsed`, and `response_time` fields with `ns`, `µs`, `ms`, and `s` unit support.
 - **Portable interactive HTML** with overview cards, timeline visualization, anomaly summaries, template samples, search, filters, sorting, and JSON export.
 - **Stable JSON output** for scripts and CI, plus meaningful exit codes for anomaly gates.
@@ -118,6 +124,8 @@ logloom demo [options]
 --json <path>              write JSON (use - for stdout)
 --format summary|json|html print a format to stdout
 --bucket <duration>        time bucket: 30s, 1m, 5m (default 1m)
+--precursors               find candidate templates that precede failures
+--sequence-window <time>   look-ahead window (default 5m; requires --precursors)
 --top <number>             templates in the terminal summary (default 10)
 --max-line-length <size>   truncate oversized lines (default 2mb)
 --no-redact                turn redaction off — share output with care
@@ -188,13 +196,28 @@ For each populated time bucket, LogLoom compares error count and p95 latency wit
 
 Anomalies are clues, not verdicts. Sparse timelines are called out in report notes.
 
+### Candidate failure precursors
+
+Pass `--precursors` to ask a different incident question: “Which non-failure message template tends to appear before this failure template?” LogLoom uses only timestamped, already-redacted events. Within each redacted service, it sorts events by time and associates every non-error/fatal event with at most one target: the nearest subsequent error/fatal event inside `--sequence-window` (five minutes by default).
+
+For each source → failure candidate:
+
+- `occurrences` is the number of retained non-failure events with the source template.
+- `support` is how many of those events led to that nearest failure inside the window; `supportPercent` is the corresponding rate.
+- `lift` divides that rate by the baseline probability of the same failure across all retained non-failure events in the service.
+- `medianGapMs` is the median source-to-failure delay.
+
+Only candidates with support ≥ 2 and lift ≥ 1.25 are reported. Results are deterministic temporal associations for investigation, **not evidence of causality**.
+
 ### Quantiles and memory
 
 Up to 50,000 latency values are retained for exact quantiles. Larger inputs use a deterministic fixed-size reservoir, clearly marked as approximate. Per-bucket latency samples are bounded separately. Raw input remains streaming; aggregate memory grows with unique templates, services, and populated buckets rather than file size.
 
+Precursor analysis is opt-in, so the default path allocates no sequence state. When enabled, LogLoom retains at most 100,000 minimal sequence records (timestamp, redacted service, template ID, and failure flag). Any truncation is explicit in report metadata and notes. Embedded callers can lower this boundary with `maxSequenceEvents` when testing constrained-input behavior.
+
 ## JSON and library API
 
-The report uses schema version `1.0` and contains metadata, summary statistics, formats, levels, services, templates, timeline buckets, anomalies, privacy counters, and analysis notes.
+Default reports retain schema version `1.0`. Enabling precursor analysis produces schema `1.1`, adding `precursors` plus `metadata.precursorAnalysis`; all existing report sections remain unchanged.
 
 ```bash
 logloom analyze app.jsonl --format json \
@@ -210,7 +233,11 @@ async function* lines() {
   yield '{"level":"info","message":"ready","service":"api"}';
 }
 
-const report = await analyzeLines(lines(), { bucketMs: 60_000 });
+const report = await analyzeLines(lines(), {
+  bucketMs: 60_000,
+  precursors: true,
+  sequenceWindowMs: 5 * 60_000,
+});
 const html = renderHtmlReport(report);
 ```
 
@@ -232,6 +259,7 @@ The repository intentionally keeps the stack small: strict TypeScript, Node.js b
 - Time buckets are populated only where events exist; the chart does not synthesize empty buckets.
 - Template mining favors bounded cost and explainability over semantic similarity.
 - Extremely high-cardinality services or templates still consume aggregate memory.
+- Candidate precursors require timestamps and express association rather than causality; truncated sequence input can make candidates incomplete and is disclosed in the report.
 
 ## Roadmap
 

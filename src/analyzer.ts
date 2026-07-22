@@ -4,6 +4,12 @@ import { Redactor } from './redactor.js';
 import { QuantileSketch } from './quantiles.js';
 import { TemplateMiner } from './cluster.js';
 import { detectAnomalies } from './anomaly.js';
+import {
+  DEFAULT_MAX_SEQUENCE_EVENTS,
+  DEFAULT_SEQUENCE_WINDOW_MS,
+  findFailurePrecursors,
+  type SequenceEvent,
+} from './precursors.js';
 import { increment, percent, round, sortedCounts, VERSION } from './util.js';
 import { basename, isAbsolute, win32 } from 'node:path';
 
@@ -41,6 +47,15 @@ export async function analyzeLines(lines: AsyncIterable<string | InputLine> | It
   if (!Number.isFinite(bucketMs) || bucketMs < 1_000) throw new Error('bucketMs must be at least 1000');
   const maxLineLength = options.maxLineLength ?? 2_000_000;
   if (!Number.isSafeInteger(maxLineLength) || maxLineLength < 1) throw new Error('maxLineLength must be a positive safe integer');
+  const precursorsEnabled = options.precursors ?? false;
+  const sequenceWindowMs = options.sequenceWindowMs ?? DEFAULT_SEQUENCE_WINDOW_MS;
+  const maxSequenceEvents = options.maxSequenceEvents ?? DEFAULT_MAX_SEQUENCE_EVENTS;
+  if (precursorsEnabled && (!Number.isSafeInteger(sequenceWindowMs) || sequenceWindowMs < 1)) {
+    throw new Error('sequenceWindowMs must be a positive safe integer');
+  }
+  if (precursorsEnabled && (!Number.isSafeInteger(maxSequenceEvents) || maxSequenceEvents < 1)) {
+    throw new Error('maxSequenceEvents must be a positive safe integer');
+  }
   const redactor = new Redactor(options.redactionConfig, options.redact ?? true);
   const miner = new TemplateMiner(0.6, options.maxSamplesPerTemplate ?? 3);
   const latency = new QuantileSketch();
@@ -48,6 +63,8 @@ export async function analyzeLines(lines: AsyncIterable<string | InputLine> | It
   const services = new Map<string, number>();
   const formats = new Map<string, number>();
   const buckets = new Map<number, BucketState>();
+  const sequenceEvents: SequenceEvent[] | undefined = precursorsEnabled ? [] : undefined;
+  let sequenceEventsSeen = 0;
   let linesRead = 0;
   let events = 0;
   let malformedLines = 0;
@@ -96,7 +113,18 @@ export async function analyzeLines(lines: AsyncIterable<string | InputLine> | It
     state.count += 1;
     if (isError(entry)) state.errors += 1;
     if (entry.durationMs !== undefined) state.latency.add(entry.durationMs);
-    miner.add(entry, bucket);
+    const cluster = miner.add(entry, bucket);
+    if (sequenceEvents && entry.timestamp) {
+      sequenceEventsSeen += 1;
+      if (sequenceEvents.length < maxSequenceEvents) {
+        sequenceEvents.push({
+          timestampMs: entry.timestamp.getTime(),
+          service: entry.service,
+          templateId: cluster.id,
+          failure: isError(entry),
+        });
+      }
+    }
   }
 
   const timeline: TimelineBucket[] = [...buckets.entries()]
@@ -113,6 +141,13 @@ export async function analyzeLines(lines: AsyncIterable<string | InputLine> | It
       return item;
     });
   const clusters = miner.clusters();
+  const precursors = precursorsEnabled
+    ? findFailurePrecursors(
+      sequenceEvents ?? [],
+      new Map(clusters.map((cluster) => [cluster.id, cluster.tokens.join(' ')])),
+      sequenceWindowMs,
+    )
+    : [];
   const anomalies = detectAnomalies(timeline, clusters);
   const anomalousTemplates = new Set(anomalies.flatMap((item) => item.templateId ? [item.templateId] : []));
   const safeSource = redactor.redactString(sourceLabel(options.source ?? 'stdin'));
@@ -122,6 +157,13 @@ export async function analyzeLines(lines: AsyncIterable<string | InputLine> | It
   if (truncatedLines > 0) notes.push(`${truncatedLines} line(s) exceeded the configured byte limit and were truncated.`);
   if (latency.count > 50_000) notes.push('Latency quantiles use a deterministic 50,000-point reservoir for bounded memory.');
   if (timeline.length < 4) notes.push('Anomaly detection requires an observed bucket plus at least three populated baseline buckets.');
+  if (precursorsEnabled) {
+    notes.push('Candidate failure precursors are temporal associations, not evidence of causality.');
+    if (missingTimestamps > 0) notes.push(`${missingTimestamps} event(s) without timestamps were excluded from candidate precursor analysis.`);
+    if (sequenceEventsSeen > (sequenceEvents?.length ?? 0)) {
+      notes.push(`Candidate precursor analysis retained the first ${(sequenceEvents?.length ?? 0).toLocaleString('en-US')} of ${sequenceEventsSeen.toLocaleString('en-US')} timestamped events; results may be incomplete.`);
+    }
+  }
 
   const summary: AnalysisReport['summary'] = {
     linesRead,
@@ -139,8 +181,17 @@ export async function analyzeLines(lines: AsyncIterable<string | InputLine> | It
   const latencySummary = latency.summary();
   if (latencySummary) summary.latency = latencySummary;
 
+  const precursorAnalysis = precursorsEnabled ? {
+    enabled: true as const,
+    sequenceWindowMs,
+    maxSequenceEvents,
+    eventsSeen: sequenceEventsSeen,
+    eventsRetained: sequenceEvents?.length ?? 0,
+    truncated: sequenceEventsSeen > (sequenceEvents?.length ?? 0),
+  } : undefined;
+
   return {
-    schemaVersion: '1.0',
+    schemaVersion: precursorsEnabled ? '1.1' : '1.0',
     metadata: {
       tool: 'LogLoom',
       version: VERSION,
@@ -149,6 +200,7 @@ export async function analyzeLines(lines: AsyncIterable<string | InputLine> | It
       bucketMs,
       redactionEnabled: redactor.enabled,
       durationMs: Math.round((performance.now() - startedClock) * 100) / 100,
+      ...(precursorAnalysis ? { precursorAnalysis } : {}),
     },
     summary,
     formats: sortedCounts(formats, events),
@@ -170,6 +222,7 @@ export async function analyzeLines(lines: AsyncIterable<string | InputLine> | It
     }),
     timeline,
     anomalies,
+    ...(precursorsEnabled ? { precursors } : {}),
     privacy: {
       redactions: redactionStats.total,
       byType: redactionStats.byType,

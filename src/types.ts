@@ -39,6 +39,12 @@ export interface AnalyzeOptions {
   redactionConfig?: RedactionConfig;
   maxLineLength?: number;
   maxSamplesPerTemplate?: number;
+  /** Enable bounded candidate failure-precursor analysis. */
+  precursors?: boolean;
+  /** Maximum gap between a source event and its nearest subsequent failure. */
+  sequenceWindowMs?: number;
+  /** Programmatic memory boundary for tests and embedded use. Not exposed by the CLI. */
+  maxSequenceEvents?: number;
 }
 
 export interface CountItem {
@@ -80,6 +86,30 @@ export interface TemplateSummary {
   anomalous: boolean;
 }
 
+export interface FailurePrecursor {
+  service: string;
+  sourceTemplateId: string;
+  sourceTemplate: string;
+  failureTemplateId: string;
+  failureTemplate: string;
+  /** Number of retained non-failure events with this source template. */
+  occurrences: number;
+  /** Number associated with this failure template inside the configured window. */
+  support: number;
+  supportPercent: number;
+  lift: number;
+  medianGapMs: number;
+}
+
+export interface PrecursorAnalysisMetadata {
+  enabled: true;
+  sequenceWindowMs: number;
+  maxSequenceEvents: number;
+  eventsSeen: number;
+  eventsRetained: number;
+  truncated: boolean;
+}
+
 export type AnomalyType = 'error-burst' | 'frequency-spike' | 'latency-spike';
 export type AnomalySeverity = 'medium' | 'high' | 'critical';
 
@@ -97,7 +127,7 @@ export interface Anomaly {
 }
 
 export interface AnalysisReport {
-  schemaVersion: '1.0';
+  schemaVersion: '1.0' | '1.1';
   metadata: {
     tool: 'LogLoom';
     version: string;
@@ -106,6 +136,7 @@ export interface AnalysisReport {
     bucketMs: number;
     redactionEnabled: boolean;
     durationMs: number;
+    precursorAnalysis?: PrecursorAnalysisMetadata;
   };
   summary: {
     linesRead: number;
@@ -127,6 +158,8 @@ export interface AnalysisReport {
   templates: TemplateSummary[];
   timeline: TimelineBucket[];
   anomalies: Anomaly[];
+  /** Present only when candidate precursor analysis is enabled (schema 1.1). */
+  precursors?: FailurePrecursor[];
   privacy: {
     redactions: number;
     byType: CountItem[];

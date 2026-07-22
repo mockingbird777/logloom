@@ -19,10 +19,18 @@ const DEFAULT_FIELDS = [
 // requires a literal `::`, and the full form requires all eight groups.
 const H16 = '[0-9A-Fa-f]{1,4}';
 const IPV4 = '(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}';
+// An embedded IPv4 address occupies two IPv6 positions, so a compressed mixed
+// form may contain at most five explicit h16 groups. Couple the counts on both
+// sides of `::` instead of allowing each side to independently reach its max.
+const COMPRESSED_MIXED_IPV6 = Array.from({ length: 5 }, (_value, index) => {
+  const before = index + 1;
+  const after = 5 - before;
+  return `(?:${H16}:){${before}}:(?:${H16}:){0,${after}}${IPV4}`;
+}).join('|');
 const IPV6 = [
   `(?:${H16}:){6}${IPV4}`, // x:x:x:x:x:x:d.d.d.d
   `::(?:${H16}:){0,5}${IPV4}`, // ::ffff:d.d.d.d and other compressed-mixed forms
-  `(?:${H16}:){1,5}:(?:${H16}:){0,4}${IPV4}`, // x::x:d.d.d.d
+  COMPRESSED_MIXED_IPV6, // x::x:d.d.d.d, with at most five total h16 groups
   `(?:${H16}:){7}${H16}`, // full form
   `(?:${H16}:){1,7}:`, // x:: through x:x:x:x:x:x:x::
   `(?:${H16}:){1,6}:${H16}`, // x::x
@@ -45,7 +53,10 @@ const DEFAULT_PATTERNS: RedactionPatternConfig[] = [
   // IPv6 must run before IPv4 so IPv4-mapped forms (::ffff:192.0.2.1) are
   // redacted whole instead of leaving `::ffff:` behind. Both count as 'IP'.
   { name: 'IP', regex: `(?<![A-Za-z0-9:.])(?:${IPV6})(?![A-Za-z0-9:]|\\.\\d)`, flags: 'g' },
-  { name: 'IP', regex: '(?<![\\d.])(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)(?:\\.(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)){3}(?![\\d.])', flags: 'g' },
+  // Do not partially redact an IPv4 tail after two h16 groups or a compressed
+  // h16 chain. Valid mixed forms were handled above; these contexts are an
+  // invalid/overlong IPv6-like token. A normal `ip:192.0.2.1` still redacts.
+  { name: 'IP', regex: `(?<![\\d.])(?<!${H16}:${H16}:)(?<!${H16}::)(?<!::${H16}:)${IPV4}(?![\\d.])`, flags: 'g' },
   { name: 'ABSOLUTE_PATH', regex: '(?<![A-Za-z0-9])(?:[A-Za-z]:\\\\(?:Users|Windows|Program Files|ProgramData|Temp)\\\\[^\\s\"\'<>]+|/(?:Users|home|root|private|tmp|var|etc|opt|usr)/[^\\s\"\'<>]+)', flags: 'gi' },
 ];
 
