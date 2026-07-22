@@ -1,6 +1,6 @@
 {
   "name": "logloom",
-  "description": "Privacy-first local log investigation: automatic parsing, safe redaction, template mining, anomaly detection, and portable interactive reports.",
+  "description": "Privacy-first local log analysis with redaction, templates, anomalies, latency, and candidate failure precursors.",
   "homepage": "https://mockingbird777.github.io/logloom/",
   "visibility": "public",
   "topics": [
@@ -13,9 +13,10 @@
     "cli",
     "typescript",
     "anomaly-detection",
+    "failure-analysis",
     "local-first"
   ],
-  "suggestedAbout": "Private log intelligence, woven locally. No backend, no telemetry, zero runtime dependencies.",
+  "suggestedAbout": "Private log intelligence: redact locally, mine templates, and surface anomalies plus candidate failure precursors.",
   "defaultBranch": "main",
   "license": "MIT"
 }

@@ -67,7 +67,7 @@ export function findFailurePrecursors(
       sourceOccurrences.set(event.templateId, (sourceOccurrences.get(event.templateId) ?? 0) + 1);
       if (!nextFailure) continue;
       const gap = nextFailure.timestampMs - event.timestampMs;
-      if (gap < 0 || gap > windowMs) continue;
+      if (gap <= 0 || gap > windowMs) continue;
 
       baselineSupport.set(nextFailure.templateId, (baselineSupport.get(nextFailure.templateId) ?? 0) + 1);
       const byFailure = associations.get(event.templateId) ?? new Map<string, AssociationState>();

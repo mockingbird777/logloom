@@ -4,6 +4,13 @@ All notable changes to LogLoom are documented here. The format follows [Keep a C
 
 ## [Unreleased]
 
+### Planned
+
+- Configurable multiline stack-trace joining.
+- Side-by-side report comparison.
+
+## [0.3.0] - 2026-07-22
+
 ### Added
 
 - Opt-in `--precursors` analysis that links already-redacted, same-service source templates to their nearest subsequent error/fatal template and reports occurrences, support, support percentage, lift, and median gap.
@@ -14,11 +21,7 @@ All notable changes to LogLoom are documented here. The format follows [Keep a C
 ### Fixed
 
 - Rejected overlong compressed IPv4-mixed IPv6 look-alikes instead of partially redacting them; explicit h16 groups on both sides of `::` are now jointly capped at five.
-
-### Planned
-
-- Configurable multiline stack-trace joining.
-- Side-by-side report comparison.
+- Excluded equal-timestamp event pairs from precursor candidates because they do not establish a verifiable order.
 
 ## [0.2.0] - 2026-07-20
 
@@ -45,6 +48,7 @@ All notable changes to LogLoom are documented here. The format follows [Keep a C
 - Automation-friendly CLI output and exit codes.
 - Strict TypeScript build, Node test suite, continuous integration, and community health files.
 
-[Unreleased]: https://github.com/mockingbird777/logloom/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mockingbird777/logloom/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mockingbird777/logloom/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mockingbird777/logloom/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mockingbird777/logloom/releases/tag/v0.1.0

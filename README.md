@@ -5,7 +5,7 @@
 
   <p>
     <a href="https://github.com/mockingbird777/logloom/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mockingbird777/logloom/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-    <img alt="version 0.2.0" src="https://img.shields.io/badge/version-0.2.0-55d7d0?style=flat-square">
+    <img alt="version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-55d7d0?style=flat-square">
     <img alt="Node.js 20 or newer" src="https://img.shields.io/badge/node-%E2%89%A520-5ee6a8?style=flat-square">
     <img alt="zero runtime dependencies" src="https://img.shields.io/badge/runtime_dependencies-0-a78bfa?style=flat-square">
     <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-ffca80?style=flat-square">
@@ -20,10 +20,10 @@ The report makes **no network requests**. Email it, attach it to an incident, or
 
 ### See the signal in 30 seconds
 
-No log file is required for the first run. The built-in synthetic incident exercises parsing, redaction, clustering, and anomaly detection together:
+No log file is required for the first run. The built-in synthetic incident exercises parsing, redaction, clustering, anomaly detection, and candidate precursor analysis together:
 
 ```bash
-npx --yes github:mockingbird777/logloom demo --precursors --html logloom-demo.html --open
+npx --yes github:mockingbird777/logloom#v0.3.0 demo --precursors --html logloom-demo.html --open
 ```
 
 ```text
@@ -41,7 +41,7 @@ payments: processor connection <num> degraded; fallback queued
 ```
 
 <div align="center">
-  <img src="assets/report-preview.svg" alt="LogLoom offline incident report showing error and latency anomalies" width="100%">
+  <img src="assets/report-preview.svg" alt="LogLoom offline incident report showing anomalies and a candidate failure precursor" width="100%">
 </div>
 
 ## Why LogLoom?
@@ -66,17 +66,17 @@ Until the first npm registry release, run LogLoom directly from its public GitHu
 
 ```bash
 # Try the complete pipeline and open its offline report
-npx --yes github:mockingbird777/logloom demo --precursors --html logloom-demo.html --open
+npx --yes github:mockingbird777/logloom#v0.3.0 demo --precursors --html logloom-demo.html --open
 
 # Analyze a file and write a browser-ready report
-npx --yes github:mockingbird777/logloom analyze ./app.log --html ./logloom-report.html
+npx --yes github:mockingbird777/logloom#v0.3.0 analyze ./app.log --html ./logloom-report.html
 
 # Stream from another command
 kubectl logs deployment/payments --since=30m \
-  | npx --yes github:mockingbird777/logloom analyze --html incident.html --json incident.json
+  | npx --yes github:mockingbird777/logloom#v0.3.0 analyze --html incident.html --json incident.json
 
 # Works with gzipped files too
-npx --yes github:mockingbird777/logloom analyze archived.jsonl.gz --html archive.html
+npx --yes github:mockingbird777/logloom#v0.3.0 analyze archived.jsonl.gz --html archive.html
 ```
 
 To run the repository version:
@@ -92,7 +92,7 @@ node dist/cli.js examples/sample.log --html report.html
 The terminal also gives a fast summary:
 
 ```text
-LogLoom 0.2.0  examples/sample.log
+LogLoom 0.3.0  examples/sample.log
 ────────────────────────────────────────────────────────────────────────
 6 events  ·  3 errors (50%)  ·  4 templates
 2 services  ·  0 anomalies  ·  3 redactions
@@ -103,7 +103,7 @@ Latency  p50 520ms  ·  p95 1.2s  ·  p99 1.2s
 
 - **Streaming ingestion** from a file, `.gz`, or stdin with byte-bounded line handling; LogLoom never needs to load the raw file into memory, even for an oversized line.
 - **Format auto-detection per line** for JSONL/NDJSON, logfmt, ISO/syslog-style plain text, and mixed files.
-- **Safe-by-default redaction** of JWTs, bearer tokens, GitHub tokens, AWS access keys, embedded secrets, emails, IPv4 addresses, common absolute filesystem paths, private keys, and sensitive structured fields.
+- **Safe-by-default redaction** of JWTs, bearer tokens, GitHub tokens, AWS access keys, embedded secrets, emails, IPv4/IPv6 addresses, common absolute filesystem paths, private keys, and sensitive structured fields.
 - **Drain-like template mining** that turns `request 9217 failed` and `request 9341 failed` into `request <num> failed`.
 - **Anomaly signals** for error bursts, template-frequency spikes, and p95 latency regressions using median/MAD baselines with a variance-aware fallback.
 - **Candidate failure precursors** that connect a non-error template to its nearest subsequent error/fatal template in the same service, then filter weak associations by support and lift.
@@ -198,7 +198,7 @@ Anomalies are clues, not verdicts. Sparse timelines are called out in report not
 
 ### Candidate failure precursors
 
-Pass `--precursors` to ask a different incident question: “Which non-failure message template tends to appear before this failure template?” LogLoom uses only timestamped, already-redacted events. Within each redacted service, it sorts events by time and associates every non-error/fatal event with at most one target: the nearest subsequent error/fatal event inside `--sequence-window` (five minutes by default).
+Pass `--precursors` to ask a different incident question: “Which non-failure message template tends to appear before this failure template?” LogLoom uses only timestamped, already-redacted events. Within each redacted service, it sorts events by time and associates every non-error/fatal event with at most one target: the nearest strictly later error/fatal event inside `--sequence-window` (five minutes by default). Equal timestamps are not treated as evidence of order.
 
 For each source → failure candidate:
 

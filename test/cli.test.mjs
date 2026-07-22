@@ -13,6 +13,14 @@ const project = fileURLToPath(new URL('..', import.meta.url));
 const cli = join(project, 'dist', 'cli.js');
 const fixture = join(project, 'test', 'fixtures', 'mixed.log');
 
+test('CLI version matches the 0.3.0 package release', async () => {
+  const metadata = JSON.parse(await readFile(join(project, 'package.json'), 'utf8'));
+  const { stdout, stderr } = await exec(process.execPath, [cli, '--version']);
+  assert.equal(stderr, '');
+  assert.equal(metadata.version, '0.3.0');
+  assert.equal(stdout, `${metadata.version}\n`);
+});
+
 test('CLI emits JSON to stdout', async () => {
   const { stdout, stderr } = await exec(process.execPath, [cli, 'analyze', fixture, '--format', 'json']);
   assert.equal(stderr, '');

@@ -1,7 +1,7 @@
 {
   "name": "logloom",
-  "version": "0.2.0",
-  "description": "Privacy-first, local-first log investigation from your terminal.",
+  "version": "0.3.0",
+  "description": "Privacy-first local log analysis with redaction, templates, anomalies, latency, and candidate failure precursors.",
   "type": "module",
   "bin": {
     "logloom": "./dist/cli.js"
@@ -41,6 +41,10 @@
     "privacy",
     "incident-response",
     "log-analysis",
+    "anomaly-detection",
+    "failure-analysis",
+    "log-redaction",
+    "local-first",
     "devops",
     "sre"
   ],

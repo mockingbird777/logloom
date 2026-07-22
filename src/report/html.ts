@@ -4,7 +4,7 @@ import { escapeJsonForHtml } from '../util.js';
 export function renderHtmlReport(report: AnalysisReport): string {
   const data = escapeJsonForHtml(report);
   const title = `LogLoom · ${escapeTitle(report.metadata.source)}`;
-  const description = 'Privacy-first, local-first log investigation with redaction, anomaly detection, and interactive reports.';
+  const description = 'Privacy-first, local-first log investigation with redaction, anomaly detection, candidate failure precursors, and interactive reports.';
   return `<!doctype html>
 <html lang="en">
 <head>

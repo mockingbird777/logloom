@@ -44,7 +44,7 @@ test('redacts before samples are retained and renders safe reports', async () =>
   assert.match(html, /\\u003c\/script\\u003e\\u003cscript\\u003ealert/);
   assert.match(html, /evil&amp;lt;\/title&amp;gt;|evil&lt;\/title&gt;/);
   const escapedTitle = 'LogLoom · [REDACTED:EMAIL]/evil&lt;/title&gt;&lt;script&gt;sourceAttack()&lt;/script&gt;&amp;&quot;';
-  const description = 'Privacy-first, local-first log investigation with redaction, anomaly detection, and interactive reports.';
+  const description = 'Privacy-first, local-first log investigation with redaction, anomaly detection, candidate failure precursors, and interactive reports.';
   assert.ok(html.includes(`<meta name="description" content="${description}">`));
   assert.ok(html.includes('<meta property="og:type" content="website">'));
   assert.ok(html.includes(`<meta property="og:title" content="${escapedTitle}">`));
@@ -164,6 +164,18 @@ test('filters one-off precursor associations even when lift is high', async () =
     serviceEvent('2026-07-19T10:00:00Z', 'info', 'api', 'retry scheduled'),
     serviceEvent('2026-07-19T10:00:01Z', 'error', 'api', 'gateway timeout'),
     serviceEvent('2026-07-19T10:00:02Z', 'info', 'api', 'healthy now'),
+  ], { precursors: true, sequenceWindowMs: 10_000 });
+  assert.deepEqual(report.precursors, []);
+});
+
+test('does not infer precursor order between events with equal timestamps', async () => {
+  const report = await analyzeLines([
+    serviceEvent('2026-07-19T10:00:00Z', 'warn', 'api', 'retry scheduled'),
+    serviceEvent('2026-07-19T10:00:00Z', 'error', 'api', 'gateway timeout'),
+    serviceEvent('2026-07-19T10:00:01Z', 'warn', 'api', 'retry scheduled'),
+    serviceEvent('2026-07-19T10:00:01Z', 'error', 'api', 'gateway timeout'),
+    serviceEvent('2026-07-19T10:00:02Z', 'info', 'api', 'healthy now'),
+    serviceEvent('2026-07-19T10:00:03Z', 'info', 'api', 'healthy now'),
   ], { precursors: true, sequenceWindowMs: 10_000 });
   assert.deepEqual(report.precursors, []);
 });
